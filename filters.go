@@ -21,7 +21,7 @@ func filter_by_type(filepath os.FileInfo, filter string) (bool, error) {
 	return filepath.IsDir() && filter == "d", nil
 }
 func filter_by_iname(filepath os.FileInfo, filter string) (bool, error) {
-	return true, nil
+	return filter_by_name(filepath, "(?i)"+filter)
 }
 func filter_by_mtime(filepath os.FileInfo, filter string) (bool, error) {
 	return true, nil

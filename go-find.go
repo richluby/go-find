@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"flag"
 	"fmt"
 	"container/list"
@@ -36,39 +37,72 @@ func get_active_filters() []*filter_t {
 	return filters
 }
 
-func filter_path(path os.FileInfo, filters []*filter_t) {
-
+func filter_path(path os.FileInfo, full_path string, filters []*filter_t) {
+	print_item := true;
+	for _, filter := range filters {
+		do_retain, err := filter.Should_retain(path) 
+		if err != nil {
+			print_item = false
+			fmt.Fprintf(os.Stderr, "Error occurred filtering [%s] : %+v\n", full_path, err)
+			break
+		}
+		if !do_retain {
+			print_item = false
+			break
+		}
+	}
+	if print_item {
+		fmt.Println(full_path)
+	}
 }
 
-func handle_path(path string, filters []*filter_t) {
-	info, err := os.Lstat(path)
+func add_to_channel(channel chan int) {
+	channel <- 1
+}
+
+func handle_path(full_path string, filters []*filter_t, done chan int) {
+	defer add_to_channel(done)
+	info, err := os.Lstat(full_path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error statting [%s] : %+v", path, err)
+		fmt.Fprintf(os.Stderr, "Error statting [%s] : %+v\n", full_path, err)
 		return
 	}
 
 	if info.IsDir() {
-		open_file, err := os.Open(path)
+		dir_done := make (chan int)
+		open_file, err := os.OpenFile(full_path, os.O_RDONLY, 0700)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error opening [%s] : %+v", path, open_file)
+			fmt.Fprintf(os.Stderr, "Error opening [%s] : %+v\n", full_path, open_file)
 		}
 		defer open_file.Close()
 		names, err := open_file.Readdirnames(-1)
 		for _, name := range names {
-			go handle_path(name, filters)
+			go handle_path(filepath.Join(full_path, name), filters, dir_done)
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error occurred : %+v", err)
+			fmt.Fprintf(os.Stderr, "Error occurred : %+v\n", err)
 		}
+		<- dir_done
 	}
 
-	filter_path(info, filters)
+	filter_path(info, full_path, filters)
 }
 
 func perform_search(filters []*filter_t) {
 	files := flag.Args() // skip program name
+	done := make (chan int)
 	for _, f := range files {
-		go handle_path(f, filters)
+		full_path, err := filepath.Abs(f)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed creating absolute path [%s] : %+v\n", f, err)
+			done <- 1
+		} else {
+			go handle_path(full_path, filters, done)
+		}
+	}
+
+	for range files {
+		<- done
 	}
 }
 

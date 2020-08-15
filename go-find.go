@@ -82,7 +82,9 @@ func handle_path(full_path string, filters []*filter_t, done chan int) {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error occurred : %+v\n", err)
 		}
-		<- dir_done
+		for range names {
+			<- dir_done
+		}
 	}
 
 	filter_path(info, full_path, filters)

@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"regexp"
 )
 
 func filter_by_name(filepath os.FileInfo, filter string) (bool, error) {
-	return filepath.Name() == filter, nil
+	return regexp.MatchString(filter, filepath.Name())
 }
 func filter_by_type(filepath os.FileInfo, filter string) (bool, error) {
 	switch filter {

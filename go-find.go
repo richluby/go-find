@@ -44,6 +44,7 @@ func filter_path(path os.FileInfo, full_path string, filters []*filter_t) {
 		if err != nil {
 			print_item = false
 			fmt.Fprintf(os.Stderr, "Error occurred filtering [%s] : %+v\n", full_path, err)
+			panic(err)
 			break
 		}
 		if !do_retain {
